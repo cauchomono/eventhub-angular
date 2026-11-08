@@ -1,0 +1,6 @@
+<p>Error</p>
+<p>status: {{errorObject()?.status}}</p>
+<p>message: {{errorObject()?.messages}}</p>
+<p>requestId: {{errorObject()?.requestId}}</p>
+
+<button (click)="retry.emit()">Retry</button>

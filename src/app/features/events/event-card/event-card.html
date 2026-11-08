@@ -1,0 +1,7 @@
+<p>title: {{event().title}}</p>
+<p>description: {{event().description}} </p>
+<p>category: {{event().category}}</p>
+<p>date: {{event().date | date:"short"}}</p>
+<p>capacity: {{event().capacity}}</p>
+<p>price:{{event().price | currency:"USD"}}</p>
+<button (click)="addEvent()">Add event</button>
