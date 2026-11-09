@@ -1,4 +1,4 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, computed, inject, Signal, signal } from '@angular/core';
 import { EventCard } from '../event-card/event-card';
 import { EventModel } from '../../../shared/models/event.model';
 import { EventsApi } from '../events-api';
@@ -6,8 +6,7 @@ import { ApiError } from '../../../core/error/api-error';
 import { ErrorCard } from '../../../shared/components/error/error-card';
 import { LoadingCard } from '../../../shared/components/loading-card/loading-card';
 import { UiState } from '../../../core/models/ui-state';
-import { takeUntilDestroyed, toObservable, toSignal } from '@angular/core/rxjs-interop';
-import { switchMap, map, startWith, catchError, of } from 'rxjs';
+import { rxResource, takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router } from '@angular/router';
 
 type EventsState = UiState<EventModel[]>;
@@ -16,12 +15,12 @@ const DEFAULT_LIMIT = 10;
 const DEFAULT_PAGE = 1;
 
 @Component({
-  selector: 'app-event-list',
+  selector: 'app-event-list-resource',
   imports: [EventCard, ErrorCard, LoadingCard],
-  templateUrl: './event-list.html',
-  styleUrl: './event-list.css',
+  templateUrl: './event-list-resource.html',
+  styleUrl: './event-list-resource.css',
 })
-export class EventList {
+export class EventListResource {
   eventsService = inject(EventsApi);
   limit = signal(DEFAULT_LIMIT);
   page = signal(DEFAULT_PAGE);
@@ -77,25 +76,37 @@ return this.areEventsPublished() ? 'Published' : 'Unpublished'
       return publishedStr?.toLowerCase() !=="false"; 
   }
 
-  readonly state = toSignal(
-    toObservable(this.combined).pipe(
-     
-      switchMap(({ limit, page, category,published }) => {
-        return this.eventsService
-          .returnAllEvents({ limit, page, published,...(category && { category: category }) })
-          .pipe(
-             
-
-            map((data): EventsState => ({ status: 'success', data: data })),
-            catchError((err: unknown) =>
-              of<EventsState>({ status: 'error', error: err as ApiError }),
-            ),
-            startWith<EventsState>({ status: 'loading' }),
-          );
+  readonly state = rxResource({
+      params: () =>({
+        limit:this.limit(),
+        page:this.page(),
+        published:this.areEventsPublished(),
+       ...(this.category() && {category:this.category()})
       }),
-    ),
-    { initialValue: { status: 'loading' } as EventsState },
-  );
+      stream: ({params})=>  this.eventsService.returnAllEvents(params),
+     })
+  
+     isGetAlleventsError : Signal<ApiError | undefined> = computed(
+      ()=>{
+        
+        if(!this.state.error() ){
+          return undefined
+        }
+        const err = this.state.error();
+       if (err  instanceof ApiError){
+        return err  
+       }
+        return undefined
+      
+      } 
+  
+      
+    )
+
+          
+    
+    
+
 
   // Paginación sin total: la API no dice cuántos eventos faltan, así que "hay página siguiente"
   // se infiere de la página actual: si trae menos elementos que `limit`, es la última.
@@ -108,9 +119,8 @@ return this.areEventsPublished() ? 'Published' : 'Unpublished'
   // la pantalla de "sin eventos" lo cubre.
   // Revisar si el backend devuelve un total (p. ej. `meta.total`, al implementar la base de datos).
   disabledNextButton = computed(() => {
-    const currentState = this.state();
-
-    return currentState.status === 'success' ? currentState.data.length < this.limit() : true;
+  
+    return this.state.hasValue() ? this.state.value().length < this.limit() : true;
   });
   onLimitChange(limitNumber: string) {
     this.limit.set(Number(limitNumber));
@@ -165,10 +175,6 @@ return this.areEventsPublished() ? 'Published' : 'Unpublished'
   setNextPage() {
     this.page.set(this.page() + 1);
      this.updateAllParams();
-  }
-
-  retry() {
-    this.retries.update((n) => n + 1);
   }
 
   addToTheList(event : string){

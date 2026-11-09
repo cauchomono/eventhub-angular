@@ -1,53 +1,71 @@
-@let currentState = state();
+@let currentState = state;
 
-
- <label for="limit">Limit</label>
-        <select id="limit" #limitSelect [value]="limit()" (change)="onLimitChange(limitSelect.value)">
-        @for(limitNumber of limitRange; track limitNumber){
-                <option [value]="limitNumber" [selected]="limitNumber == limit()"> {{limitNumber}} </option>
-             }
-        </select>
-<label for="category"> Category</label>
-<select id="category" #categorySelect [value]="category()" (change)="onCategoryChange(categorySelect.value)">
-        @for(categorySelection of categories; track categorySelection){
-            <option [value] = "categorySelection" [selected]="categorySelection == category()" >{{categorySelection}}</option>
-        }
-
+<label for="limit">Limit</label>
+<select id="limit" #limitSelect [value]="limit()" (change)="onLimitChange(limitSelect.value)">
+  @for (limitNumber of limitRange; track limitNumber) {
+    <option [value]="limitNumber" [selected]="limitNumber == limit()">{{ limitNumber }}</option>
+  }
 </select>
-
+<label for="category"> Category</label>
+<select
+  id="category"
+  #categorySelect
+  [value]="category()"
+  (change)="onCategoryChange(categorySelect.value)"
+>
+  @for (categorySelection of categories; track categorySelection) {
+    <option [value]="categorySelection" [selected]="categorySelection == category()">
+      {{ categorySelection }}
+    </option>
+  }
+</select>
 
 <label for="published"> Show disabled events</label>
-<select id="published" #publishedSelect [value]="publishedSelected()" (change)="onPublishedEventsChange(publishedSelect.value)" >
-@for(publishedOption of publishedOptions; track publishedOption){
-  <option [value]="publishedOption" [selected]="publishedOption == publishedSelected()"> {{publishedOption}}</option>
-}
-          
-
-
-
+<select
+  id="published"
+  #publishedSelect
+  [value]="publishedSelected()"
+  (change)="onPublishedEventsChange(publishedSelect.value)"
+>
+  @for (publishedOption of publishedOptions; track publishedOption) {
+    <option [value]="publishedOption" [selected]="publishedOption == publishedSelected()">
+      {{ publishedOption }}
+    </option>
+  }
 </select>
-@switch (currentState.status) {
-    @case ("loading") {
-        <app-loading-card></app-loading-card>
+@switch (true) {
+  @case (currentState.status() == 'loading') {
+    <app-loading-card></app-loading-card>
+  }
+  @case (currentState.status() == 'error') {
+    <app-error-card
+      [errorObject]="isGetAlleventsError()"
+      (retry)="currentState.reload()"
+    ></app-error-card>
+  }
+  @case (currentState.status() == 'resolved' || currentState.status() == 'reloading') {
+    @if (currentState.status() == 'reloading') {
+      <app-loading-card></app-loading-card>
     }
-    @case ("error") {
-        <app-error-card [errorObject]="currentState.error" (retry)="retry()"></app-error-card>
-
-    }
-    @case ('success'){
-        @if(currentState.data.length > 0){
-             <ul>
-    @for (event of currentState.data; track event.id) {
-      <li><app-event-card (randomOutput) = "addToTheList($event)" [event]="event"></app-event-card></li>
-    } 
-  </ul>
-        }@else{
-             <p>There are no events to show</p>
+    @if (currentState.hasValue() && currentState.value().length > 0) {
+      <ul>
+        @for (event of currentState.value(); track event.id) {
+          <li>
+            <app-event-card (randomOutput)="addToTheList($event)" [event]="event"></app-event-card>
+          </li>
         }
+      </ul>
+    } @else {
+      @if (currentState.status() == 'resolved') {
+        <p>There are no events to show</p>
+      }
     }
-
+  }
 }
-    @if(currentState.status == "success"){
-    <button (click)="setPreviousPage()" [disabled]="disabledBackButton()">{{backButtonIcon}}</button> 
-    <button (click)="setNextPage()" [disabled]="disabledNextButton()">{{nextButtonIcon}}</button>
-    }
+
+@if (currentState.status() == 'resolved') {
+  <button (click)="setPreviousPage()" [disabled]="disabledBackButton()">
+    {{ backButtonIcon }}
+  </button>
+  <button (click)="setNextPage()" [disabled]="disabledNextButton()">{{ nextButtonIcon }}</button>
+}
